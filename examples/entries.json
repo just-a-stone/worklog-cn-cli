@@ -1,0 +1,18 @@
+{
+  "entries": [
+    {
+      "date": "2026-08-03",
+      "project_id": "246",
+      "hours": 8,
+      "content": "需求对齐与开发",
+      "progress": 1
+    },
+    {
+      "date": "2026-08-04",
+      "project_id": "246",
+      "hours": 8,
+      "content": "接口联调",
+      "progress": 1
+    }
+  ]
+}
