@@ -5,3 +5,6 @@
 dist/
 *.test
 coverage.out
+/findings.md
+/progress.md
+/task_plan.md
