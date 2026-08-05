@@ -1,0 +1,7 @@
+.env
+.env.*
+!.env.example
+/worklog-cn-cli
+dist/
+*.test
+coverage.out

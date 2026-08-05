@@ -1,0 +1,110 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Test
+        run: go test ./...
+
+      - name: Vet
+        run: go vet ./...
+
+  build:
+    name: Build ${{ matrix.platform }}-${{ matrix.arch }}
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: darwin
+            goarch: amd64
+            platform: macos
+            extension: ""
+          - goos: darwin
+            goarch: arm64
+            platform: macos
+            extension: ""
+          - goos: windows
+            goarch: amd64
+            platform: windows
+            extension: ".exe"
+          - goos: windows
+            goarch: arm64
+            platform: windows
+            extension: ".exe"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build executable
+        env:
+          CGO_ENABLED: "0"
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          mkdir -p dist
+          go build \
+            -trimpath \
+            -ldflags="-s -w" \
+            -o "dist/worklog-cn-cli-${{ matrix.platform }}-${{ matrix.goarch }}${{ matrix.extension }}" \
+            ./cmd/worklog-cn-cli
+
+      - name: Upload executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: worklog-cn-cli-${{ matrix.platform }}-${{ matrix.goarch }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    name: Publish Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download executables
+        uses: actions/download-artifact@v4
+        with:
+          pattern: worklog-cn-cli-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Generate checksums
+        working-directory: release-assets
+        run: sha256sum * > checksums.txt
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "worklog-cn-cli ${{ github.ref_name }}" \
+            --generate-notes \
+            release-assets/*
