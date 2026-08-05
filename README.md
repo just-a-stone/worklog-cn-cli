@@ -56,6 +56,54 @@ git push origin v1.0.0
 
 仓库需要允许 GitHub Actions 使用 `GITHUB_TOKEN` 写入 Releases；workflow 已声明 `contents: write` 权限。
 
+#### 下载与运行
+
+Release 资产是无需额外运行时的单文件可执行程序。根据设备选择对应文件：
+
+| 设备 | 文件 |
+|---|---|
+| Apple Silicon Mac（M1/M2/M3/M4） | `worklog-cn-cli-macos-arm64` |
+| Intel Mac | `worklog-cn-cli-macos-amd64` |
+| Intel/AMD Windows | `worklog-cn-cli-windows-amd64.exe` |
+| Windows ARM | `worklog-cn-cli-windows-arm64.exe` |
+
+同时下载 `checksums.txt`，用于校验文件完整性。macOS 可执行：
+
+```bash
+shasum -a 256 worklog-cn-cli-macos-arm64
+chmod +x worklog-cn-cli-macos-arm64
+./worklog-cn-cli-macos-arm64 --help
+```
+
+Windows PowerShell 示例：
+
+```powershell
+(Get-FileHash .\worklog-cn-cli-windows-amd64.exe -Algorithm SHA256).Hash
+.\worklog-cn-cli-windows-amd64.exe --help
+```
+
+首次运行前，在可执行文件同目录创建 `.env` 并填写实际服务地址和账号，配置格式见下方“配置”章节。登录并查询示例：
+
+```bash
+./worklog-cn-cli-macos-arm64 login --write-env
+./worklog-cn-cli-macos-arm64 whoami
+./worklog-cn-cli-macos-arm64 projects --format table
+```
+
+Windows 下将命令开头替换为对应的 `.exe` 文件名：
+
+```powershell
+.\worklog-cn-cli-windows-amd64.exe login --write-env
+.\worklog-cn-cli-windows-amd64.exe whoami
+.\worklog-cn-cli-windows-amd64.exe projects --format table
+```
+
+macOS 若提示无法验证开发者，请先确认校验值，再在系统设置中允许打开；也可以对已确认来源的文件移除下载隔离标记：
+
+```bash
+xattr -d com.apple.quarantine worklog-cn-cli-macos-arm64
+```
+
 ### 3. 配置
 
 复制 [`.env.example`](.env.example) 为 `.env`，填写账号和密码：
