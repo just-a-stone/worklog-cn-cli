@@ -1,8 +1,8 @@
 # worklog-cn-cli
 
-Ecology「01.Timesheet 提报」的 Go CLI。它将原 Python 脚本迁移为一个可独立分发的二进制，覆盖登录、会话、项目查询、提报历史、工时单详情、按周 payload 生成和安全提交。
+Ecology「01.Timesheet 提报」的 Go CLI，提供登录、会话管理、项目查询、提报历史、工时单详情、按周 payload 生成和安全提交能力。
 
-项目依赖 Go 运行时和少量 CLI 库，不需要 Python、pip 或虚拟环境。
+项目编译为可独立分发的单文件二进制，无需额外运行时。
 
 > [!WARNING]
 > `submit --i-confirm` 和 `submit --yes` 会调用 Ecology 写接口。真实提交前，请先执行 `dry-run` 并检查生成的日期、项目、工时和 payload。
@@ -13,7 +13,7 @@ Ecology「01.Timesheet 提报」的 Go CLI。它将原 Python 脚本迁移为一
 - `loadForm`、`detailData`、项目浏览器和三类字段联动接口
 - 项目、历史记录和已提交工时单详情查询
 - 按自然周生成工作日或含周末的 entries
-- JSON 文件输入、字段别名兼容和 payload 导出
+- JSON 文件输入、多种字段别名和 payload 导出
 - JSON、JSONL、table、CSV 输出
 - 默认 dry-run、`--readonly` 和确认参数安全门闩
 - `CGO_ENABLED=0` 交叉编译为单文件二进制
@@ -190,8 +190,6 @@ printf '%s\n' "$ECOLOGY_PASSWORD" | ./worklog-cn-cli --password-stdin login
 | `dry-run` | 生成并展示 payload | 否 |
 | `submit` | 预览或提交 payload | 仅确认后 |
 
-旧 Python 脚本名称仍有别名：`list-projects`、`list-history`、`view-request`、`dry-run-report`、`submit-report`。
-
 通用选项：
 
 ```text
@@ -203,7 +201,7 @@ printf '%s\n' "$ECOLOGY_PASSWORD" | ./worklog-cn-cli --password-stdin login
 --insecure                 跳过 HTTPS 证书校验
 --format json|jsonl|table|csv
 --fields a,b,c             table/csv 输出列
---json                     兼容旧脚本，强制 JSON 输出
+--json                     强制 JSON 输出
 --readonly                 拒绝写操作
 --yes                      确认写操作
 ```
@@ -225,7 +223,7 @@ docs/api-map.md            Ecology 接口字段和请求顺序记录
 examples/entries.json      JSON entries 示例
 ```
 
-动态表单的 token、签名字段和 `linkageUUID` 每次从 `loadForm` 获取，不复用旧 payload。当前字段 ID、workflow/node/form 常量与 Ecology 环境绑定，详细接口约定见 [`docs/api-map.md`](docs/api-map.md)。默认地址是 HTTP，生产环境建议使用 HTTPS 并保持 TLS 校验。
+动态表单的 token、签名字段和 `linkageUUID` 每次从 `loadForm` 获取，不复用过期 payload。当前字段 ID、workflow/node/form 常量与 Ecology 环境绑定，详细接口约定见 [`docs/api-map.md`](docs/api-map.md)。请通过 `ECOLOGY_BASE` 设置实际服务地址，并保持 TLS 校验。
 
 ## 开发与验证
 
