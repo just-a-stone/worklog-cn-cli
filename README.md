@@ -1,195 +1,144 @@
-# worklog-cn-cli
+<h1 align="center">worklog-cn-cli</h1>
 
-Ecology「01.Timesheet 提报」的 Go CLI，提供登录、会话管理、项目查询、提报历史、工时单详情、按周 payload 生成和安全提交能力。
+<p align="center">
+  <b>一条命令填完一周的泛微 Ecology 工时 —— 单文件二进制，默认只预览不提交。</b>
+</p>
 
-项目编译为可独立分发的单文件二进制，无需额外运行时。
+<p align="center">
+  <a href="https://github.com/just-a-stone/worklog-cn-cli/actions/workflows/ci.yml"><img src="https://github.com/just-a-stone/worklog-cn-cli/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/just-a-stone/worklog-cn-cli/releases/latest"><img src="https://img.shields.io/github/v/release/just-a-stone/worklog-cn-cli?sort=semver" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/just-a-stone/worklog-cn-cli" alt="License"></a>
+  <img src="https://img.shields.io/github/go-mod/go-version/just-a-stone/worklog-cn-cli" alt="Go version">
+</p>
+
+---
+
+## 为什么
+
+在 Ecology「01.Timesheet 提报」里填一周工时，要点开表单、逐天加明细行、选项目、等三段字段联动、填内容和进度，来回二十多次点击。每周一次，每次十分钟。
+
+```bash
+# 之前：浏览器里点二十几次
+# 现在：
+worklog-cn-cli submit --week 2026-08-05 --project 246 --content '开发与联调' --i-confirm
+```
+
+登录、表单 token、`linkageUUID`、字段联动、周边界计算全部自动处理。**没有 `--i-confirm` 时永远只预览，不会写服务端。**
 
 > [!WARNING]
-> `submit --i-confirm` 和 `submit --yes` 会调用 Ecology 写接口。真实提交前，请先执行 `dry-run` 并检查生成的日期、项目、工时和 payload。
+> `submit --i-confirm` / `submit --yes` 会真实调用 Ecology 写接口。第一次使用请先跑 `dry-run` 并核对生成的日期、项目、工时。
 
-## 功能
+## 安装
 
-- RSA PKCS#1 v1.5 登录与 Cookie 会话管理
-- `loadForm`、`detailData`、项目浏览器和三类字段联动接口
-- 项目、历史记录和已提交工时单详情查询
-- 按自然周生成工作日或含周末的 entries
-- JSON 文件输入、多种字段别名和 payload 导出
-- JSON、JSONL、table、CSV 输出
-- 默认 dry-run、`--readonly` 和确认参数安全门闩
-- `CGO_ENABLED=0` 交叉编译为单文件二进制
-
-## 开始使用
-
-### 1. 构建
-
-需要 Go 1.22 或更高版本：
-
-```bash
-go build -trimpath -ldflags='-s -w' -o worklog-cn-cli ./cmd/worklog-cn-cli
-./worklog-cn-cli --help
-```
-
-交叉编译示例：
-
-```bash
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o dist/worklog-cn-cli-linux-amd64 ./cmd/worklog-cn-cli
-CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -o dist/worklog-cn-cli-darwin-arm64 ./cmd/worklog-cn-cli
-CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -o dist/worklog-cn-cli-macos-amd64 ./cmd/worklog-cn-cli
-CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -o dist/worklog-cn-cli-windows-amd64.exe ./cmd/worklog-cn-cli
-```
-
-### 2. GitHub Release
-
-推送符合 `v*.*.*` 格式的版本标签后，GitHub Actions 会自动运行测试并构建以下可执行文件：
-
-- `worklog-cn-cli-macos-amd64`
-- `worklog-cn-cli-macos-arm64`
-- `worklog-cn-cli-windows-amd64.exe`
-- `worklog-cn-cli-windows-arm64.exe`
-
-四个文件和 `checksums.txt` 会上传到同一个 GitHub Release。发布示例：
-
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-仓库需要允许 GitHub Actions 使用 `GITHUB_TOKEN` 写入 Releases；workflow 已声明 `contents: write` 权限。
-
-#### 下载与运行
-
-Release 资产是无需额外运行时的单文件可执行程序。根据设备选择对应文件：
+**下载预编译二进制**（推荐，无需任何运行时）——到 [Releases](https://github.com/just-a-stone/worklog-cn-cli/releases/latest) 选择对应文件：
 
 | 设备 | 文件 |
 |---|---|
 | Apple Silicon Mac（M1/M2/M3/M4） | `worklog-cn-cli-macos-arm64` |
 | Intel Mac | `worklog-cn-cli-macos-amd64` |
-| Intel/AMD Windows | `worklog-cn-cli-windows-amd64.exe` |
+| Linux x86_64 | `worklog-cn-cli-linux-amd64` |
+| Linux ARM64 | `worklog-cn-cli-linux-arm64` |
+| Windows | `worklog-cn-cli-windows-amd64.exe` |
 | Windows ARM | `worklog-cn-cli-windows-arm64.exe` |
 
-同时下载 `checksums.txt`，用于校验文件完整性。macOS 可执行：
-
 ```bash
-shasum -a 256 worklog-cn-cli-macos-arm64
 chmod +x worklog-cn-cli-macos-arm64
-./worklog-cn-cli-macos-arm64 --help
+./worklog-cn-cli-macos-arm64 --version
 ```
 
-Windows PowerShell 示例：
+每个 Release 同时提供 `checksums.txt`，建议先校验：`shasum -a 256 worklog-cn-cli-macos-arm64`。
 
-```powershell
-(Get-FileHash .\worklog-cn-cli-windows-amd64.exe -Algorithm SHA256).Hash
-.\worklog-cn-cli-windows-amd64.exe --help
-```
-
-首次运行前，在可执行文件同目录创建 `.env` 并填写实际服务地址和账号，配置格式见下方“配置”章节。登录并查询示例：
+**用 Go 安装**（需要 Go 1.22+）：
 
 ```bash
-./worklog-cn-cli-macos-arm64 login --write-env
-./worklog-cn-cli-macos-arm64 whoami
-./worklog-cn-cli-macos-arm64 projects --format table
+go install github.com/just-a-stone/worklog-cn-cli/cmd/worklog-cn-cli@latest
 ```
 
-Windows 下将命令开头替换为对应的 `.exe` 文件名：
-
-```powershell
-.\worklog-cn-cli-windows-amd64.exe login --write-env
-.\worklog-cn-cli-windows-amd64.exe whoami
-.\worklog-cn-cli-windows-amd64.exe projects --format table
-```
-
-macOS 若提示无法验证开发者，请先确认校验值，再在系统设置中允许打开；也可以对已确认来源的文件移除下载隔离标记：
+<details>
+<summary><b>从源码构建</b></summary>
 
 ```bash
-xattr -d com.apple.quarantine worklog-cn-cli-macos-arm64
+git clone https://github.com/just-a-stone/worklog-cn-cli.git
+cd worklog-cn-cli
+go build -trimpath -ldflags='-s -w' -o worklog-cn-cli ./cmd/worklog-cn-cli
 ```
 
-### 3. 配置
+交叉编译（`CGO_ENABLED=0`，产物为单文件静态二进制）：
 
-复制 [`.env.example`](.env.example) 为 `.env`，填写账号和密码：
+```bash
+CGO_ENABLED=0 GOOS=linux  GOARCH=amd64 go build -trimpath -o dist/worklog-cn-cli-linux-amd64      ./cmd/worklog-cn-cli
+CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -o dist/worklog-cn-cli-darwin-arm64     ./cmd/worklog-cn-cli
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -o dist/worklog-cn-cli-windows-amd64.exe ./cmd/worklog-cn-cli
+```
+
+</details>
+
+## 60 秒上手
+
+**1. 配置** —— 在二进制同目录建 `.env`（可从 [`.env.example`](.env.example) 复制）：
 
 ```dotenv
 ECOLOGY_BASE=https://ecology.example.invalid
 ECOLOGY_USERNAME=your-account
 ECOLOGY_PASSWORD=your-password
-ECOLOGY_JSESSIONID=
 ECOLOGY_DEFAULT_PROJECT=246
-ECOLOGY_TIMEOUT=30
-ECOLOGY_VERIFY_TLS=true
 ```
 
-配置优先级为：命令行参数 > 进程环境变量 > `.env` > 默认值。程序会从当前目录向上查找最多五级父目录，也支持显式的 `--env-file` 和 `--profile`。
+**2. 登录**，把会话写回 `.env`：
 
-密码不接受 `--password`，避免出现在进程列表和 shell history。可以使用环境变量，或通过 stdin 输入：
-
-```bash
-printf '%s\n' "$ECOLOGY_PASSWORD" | ./worklog-cn-cli --password-stdin login
+```console
+$ worklog-cn-cli login --write-env
 ```
 
-登录成功后，将新会话写回 `.env`：
+**3. 看看有哪些项目**：
 
-```bash
-./worklog-cn-cli login --write-env
+```console
+$ worklog-cn-cli projects --format table --fields id,name,code,manager_name
+id   name          code         manager_name
+---  ------------  -----------  ------------
+246  内部平台建设  XM-2026-018  张三
+312  客户 A 交付   XM-2026-031  李四
 ```
 
-> [!NOTE]
-> `ECOLOGY_JSESSIONID` 会过期。遇到 `getAccountList 失败` 或会话无效时，重新执行 `login --write-env`。`.env` 包含凭据和 Cookie，不要提交到版本库。
+**4. 预览这周的工时**（不写服务端）：
 
-### 4. 只读查询
-
-所有命令默认输出 JSON。列表命令可使用 `--format table` 或 `--format csv`，也可以用 `--fields` 选择列。
-
-```bash
-# 当前账号和部门
-./worklog-cn-cli whoami
-
-# 可选项目
-./worklog-cn-cli projects --page-size 50 --format table
-
-# 最近提报历史
-./worklog-cn-cli history --limit 10 --format table
-
-# 查看一张已提交工时单
-./worklog-cn-cli view 97217 --format table
+```console
+$ worklog-cn-cli dry-run --week 2026-08-05 --project 246 --content '开发与联调' --format table
+content     date        hours  progress  project_id  project_name
+----------  ----------  -----  --------  ----------  ------------
+开发与联调  2026-08-03  8      1         246         内部平台建设
+开发与联调  2026-08-04  8      1         246         内部平台建设
+开发与联调  2026-08-05  8      1         246         内部平台建设
+开发与联调  2026-08-06  8      1         246         内部平台建设
+开发与联调  2026-08-07  8      1         246         内部平台建设
 ```
 
-只读命令包括 `whoami`、`projects`、`history` 和 `view`。它们不会调用 `requestOperation`。
+`--week` 填该周任意一天即可：主表日期自动扩展为周一至周日，明细默认只含工作日（要周末加 `--include-weekend`）。
 
-### 5. 生成 dry-run
+**5. 核对无误后提交**：
 
-按周生成时，`--week` 可以填写该周任意一天；主表日期自动扩展为周一至周日，明细默认只包含周一至周五：
-
-```bash
-./worklog-cn-cli dry-run \
-  --week 2026-08-05 \
-  --project 246 \
-  --content '开发与联调' \
-  --hours 8 \
-  --progress 1.0 \
-  --dump-payload /tmp/worklog-payload.json
+```console
+$ worklog-cn-cli submit --week 2026-08-05 --project 246 --content '开发与联调' --i-confirm
 ```
 
-需要包含周末时添加 `--include-weekend`。`--no-linkage` 会跳过项目编号和经理的联动查询，但仍会读取表单和项目列表。
+## 每天写不同内容
 
-### 6. 使用 JSON entries
-
-支持 JSON 数组和 `{ "entries": [...] }` 两种顶层格式。示例见 [`examples/entries.json`](examples/entries.json)：
+用 JSON 文件替代 `--content`，支持数组和 `{"entries": [...]}` 两种顶层格式（见 [`examples/entries.json`](examples/entries.json)）：
 
 ```json
 {
   "entries": [
-    {
-      "date": "2026-08-03",
-      "project_id": "246",
-      "hours": 8,
-      "content": "需求对齐与开发",
-      "progress": 1
-    }
+    { "date": "2026-08-03", "project_id": "246", "hours": 8, "content": "需求对齐与开发", "progress": 1 },
+    { "date": "2026-08-04", "project_id": "312", "hours": 8, "content": "客户联调",       "progress": 0.6 }
   ]
 }
 ```
 
-支持的字段别名：
+```bash
+worklog-cn-cli dry-run -f examples/entries.json
+```
+
+字段名兼容多种别名，从表格导出的数据通常不用改列名：
 
 | 业务字段 | 可用名称 |
 | --- | --- |
@@ -199,46 +148,39 @@ printf '%s\n' "$ECOLOGY_PASSWORD" | ./worklog-cn-cli --password-stdin login
 | 进度 | `progress`、`wcjd`、`完成进度` |
 | 项目 | `project_id`、`xmmc` |
 
-```bash
-./worklog-cn-cli dry-run -f examples/entries.json
-```
+## 安全设计
 
-### 7. 提交
+这是个会往 OA 里写数据的工具，所以默认全部关着：
 
-`submit` 在没有确认参数时与 `dry-run` 等价：
+- **写操作需要显式门闩。** `submit` 缺少 `--i-confirm` / `--yes` 时与 `dry-run` 完全等价；`--readonly` 会在建立写请求前直接拒绝。
+- **密码不接受命令行参数。** `--password` 会被显式拒绝，避免泄漏到进程列表和 shell history。只支持 `ECOLOGY_PASSWORD` 或 `--password-stdin`：
+  ```bash
+  printf '%s\n' "$ECOLOGY_PASSWORD" | worklog-cn-cli --password-stdin login
+  ```
+- **`.env` 含密码和 Cookie**，已在 `.gitignore` 中排除，不要提交到版本库。
+- **保持 TLS 校验。** `--insecure` 仅供本地排查，别留在日常流程里。
 
-```bash
-./worklog-cn-cli submit \
-  --week 2026-08-05 \
-  --project 246 \
-  --content '开发与联调'
-```
+详见 [SECURITY.md](SECURITY.md)。
 
-确认 payload 后，显式打开写入门闩：
-
-```bash
-./worklog-cn-cli submit \
-  --week 2026-08-05 \
-  --project 246 \
-  --content '开发与联调' \
-  --i-confirm
-```
-
-`--yes` 是 `--i-confirm` 的全局别名；`--readonly` 会在建立写请求前拒绝提交。
+> [!IMPORTANT]
+> 本项目是**非官方**第三方客户端，与泛微（Weaver）及 Ecology 产品无任何关联。请仅在你有权访问的实例上使用，并遵守所在组织的规定。
+>
+> 表单字段 ID、workflow/node/form 常量与**具体 Ecology 环境绑定**。跨环境使用前请先用 `dry-run --dump-payload` 核对 payload。
 
 ## 命令参考
 
 | 命令 | 作用 | 写服务端 |
 | --- | --- | --- |
-| `login` | RSA 登录；`--write-env` 保存会话 | 否，除本地 `.env` 外 |
-| `whoami` | 查询当前账号 | 否 |
-| `projects` | 查询可选项目 | 否 |
-| `history` | 查询最近提报记录 | 否 |
-| `view REQUEST_ID` | 查询主表、明细和周汇总 | 否 |
-| `dry-run` | 生成并展示 payload | 否 |
-| `submit` | 预览或提交 payload | 仅确认后 |
+| `login` | RSA 登录；`--write-env` 保存会话 | 否（仅写本地 `.env`） |
+| `whoami` | 验证会话并显示当前账号、部门 | 否 |
+| `projects` | 列出可选项目 | 否 |
+| `history` | 列出最近提报记录 | 否 |
+| `view REQUEST_ID` | 查看主表、明细和周汇总 | 否 |
+| `dry-run` | 组装并展示 payload | 否 |
+| `submit` | 预览；带 `--i-confirm` 时提交 | 仅确认后 |
 
-通用选项：
+<details>
+<summary><b>全局参数与退出码</b></summary>
 
 ```text
 --base URL                 Ecology 服务地址
@@ -251,12 +193,75 @@ printf '%s\n' "$ECOLOGY_PASSWORD" | ./worklog-cn-cli --password-stdin login
 --fields a,b,c             table/csv 输出列
 --json                     强制 JSON 输出
 --readonly                 拒绝写操作
---yes                      确认写操作
+--yes, -y                  确认写操作
+--password-stdin           从 stdin 读取密码
+--version                  显示版本
 ```
 
-退出码：`0` 成功，`1` 配置或网络错误，`2` 参数错误，`3` 服务端业务错误，`4` 安全策略拒绝。
+所有命令默认输出 JSON，便于 `jq` 处理。列表命令支持 `--format table|csv` 和 `--fields` 选列。
 
-## 项目结构
+退出码：`0` 成功 · `1` 配置或网络错误 · `2` 参数错误 · `3` 服务端业务错误 · `4` 安全策略拒绝。
+
+</details>
+
+<details>
+<summary><b>配置项与优先级</b></summary>
+
+优先级：**命令行参数 > 进程环境变量 > `.env` > 默认值**。
+
+程序从当前目录向上查找最多五级父目录定位 `.env`，也支持 `--env-file` 指定路径、`--profile NAME` 读取 `.env.NAME`。
+
+| 变量 | 说明 | 默认 |
+| --- | --- | --- |
+| `ECOLOGY_BASE` | 服务地址 | 必填 |
+| `ECOLOGY_USERNAME` | 账号 | 必填 |
+| `ECOLOGY_PASSWORD` | 密码 | 登录时必填 |
+| `ECOLOGY_JSESSIONID` | 会话 Cookie，`login --write-env` 自动写入 | — |
+| `ECOLOGY_DEFAULT_PROJECT` | 默认项目 id | — |
+| `ECOLOGY_TIMEOUT` | 请求超时秒数 | `30` |
+| `ECOLOGY_VERIFY_TLS` | 是否校验证书 | `true` |
+
+</details>
+
+## FAQ
+
+<details>
+<summary><b>提示 <code>getAccountList 失败</code> 或会话无效</b></summary>
+
+`ECOLOGY_JSESSIONID` 过期了。重新执行 `worklog-cn-cli login --write-env` 刷新会话。
+</details>
+
+<details>
+<summary><b>macOS 提示"无法验证开发者"</b></summary>
+
+先用 `checksums.txt` 校验文件，确认来源后移除下载隔离标记：
+
+```bash
+shasum -a 256 worklog-cn-cli-macos-arm64   # 与 checksums.txt 比对
+xattr -d com.apple.quarantine worklog-cn-cli-macos-arm64
+```
+</details>
+
+<details>
+<summary><b>提交后字段错位 / 项目名为空</b></summary>
+
+字段 ID 与 Ecology 环境绑定。用 `dry-run --dump-payload /tmp/p.json` 导出完整 payload，和浏览器 DevTools 里真实提交的请求体对比。如果确实不同，请开 issue 说明环境差异。
+</details>
+
+<details>
+<summary><b>联动查询很慢</b></summary>
+
+加 `--no-linkage` 跳过项目编号和经理的联动请求。注意仍会读取表单和项目列表，且部分字段会留空。
+</details>
+
+## 开发
+
+```bash
+go vet ./...
+go test -race ./...
+```
+
+测试通过注入 HTTP RoundTripper 构造响应来验证请求组装、RSA 加密、Cookie 处理、响应解析和 payload，**不访问真实 Ecology 服务**。
 
 ```text
 cmd/worklog-cn-cli/        Cobra 命令、参数、安全门闩和退出码
@@ -267,20 +272,13 @@ internal/worklog/
   entries.go               entries 解析、周边界和工作日生成
   payload.go               Timesheet payload 组装
   output.go                JSON/JSONL/table/CSV 渲染
-docs/api-map.md            Ecology 接口字段和请求顺序记录
 examples/entries.json      JSON entries 示例
 ```
 
-动态表单的 token、签名字段和 `linkageUUID` 每次从 `loadForm` 获取，不复用过期 payload。当前字段 ID、workflow/node/form 常量与 Ecology 环境绑定，详细接口约定见 [`docs/api-map.md`](docs/api-map.md)。请通过 `ECOLOGY_BASE` 设置实际服务地址，并保持 TLS 校验。
+动态表单的 token、签名字段和 `linkageUUID` 每次从 `loadForm` 重新获取，不复用过期 payload。
 
-## 开发与验证
+欢迎贡献，请先读 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-测试不访问真实 OA，而是注入 HTTP RoundTripper 验证请求、RSA 加密、Cookie、响应解析和 payload：
+## License
 
-```bash
-GOCACHE=/tmp/worklog-cn-cli-go-build go test ./...
-GOCACHE=/tmp/worklog-cn-cli-go-build go test -race ./...
-GOCACHE=/tmp/worklog-cn-cli-go-build go vet ./...
-```
-
-真实服务验证或提交前，建议遵循：登录刷新会话 → 执行 `dry-run` → 核对 payload → 必要时使用 `submit --i-confirm`。
+[MIT](LICENSE)
