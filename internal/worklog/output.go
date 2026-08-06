@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
-	"unicode/utf8"
+	"unicode"
 )
 
 type OutputOptions struct {
@@ -112,7 +112,7 @@ func renderTable(writer io.Writer, rows []map[string]any, selected []string) err
 			text := cellText(row[column])
 			parts[i] = padRight(text, widths[i])
 		}
-		_, err := fmt.Fprintln(writer, strings.Join(parts, "  "))
+		_, err := fmt.Fprintln(writer, strings.TrimRight(strings.Join(parts, "  "), " "))
 		return err
 	}
 	if err := writeRow(headerMap(columns)); err != nil {
@@ -199,7 +199,50 @@ func cellText(value any) string {
 	return fmt.Sprint(value)
 }
 
-func runeWidth(text string) int { return utf8.RuneCountInString(text) }
+// wideRanges 覆盖 East Asian Wide/Fullwidth 码位，在等宽终端里占两列。
+var wideRanges = [][2]rune{
+	{0x1100, 0x115F},   // 谚文字母
+	{0x2E80, 0x303E},   // CJK 部首、康熙部首、CJK 符号与标点
+	{0x3041, 0x33FF},   // 平假名、片假名、注音、CJK 兼容
+	{0x3400, 0x4DBF},   // CJK 扩展 A
+	{0x4E00, 0x9FFF},   // CJK 统一表意文字
+	{0xA000, 0xA4CF},   // 彝文
+	{0xAC00, 0xD7A3},   // 谚文音节
+	{0xF900, 0xFAFF},   // CJK 兼容表意文字
+	{0xFE10, 0xFE19},   // 竖排形式
+	{0xFE30, 0xFE6F},   // CJK 兼容形式、小型变体
+	{0xFF00, 0xFF60},   // 全角形式
+	{0xFFE0, 0xFFE6},   // 全角符号
+	{0x1F300, 0x1F64F}, // 表情符号
+	{0x1F900, 0x1F9FF},
+	{0x20000, 0x3FFFD}, // CJK 扩展 B 及以上
+}
+
+// runeWidth 返回文本在等宽终端中占用的列数。中文等全角字符占两列，
+// 按 rune 个数计算会让 table 输出错位。
+func runeWidth(text string) int {
+	width := 0
+	for _, r := range text {
+		switch {
+		case unicode.Is(unicode.Mn, r):
+			// 组合附加符号不额外占位
+		case isWideRune(r):
+			width += 2
+		default:
+			width++
+		}
+	}
+	return width
+}
+
+func isWideRune(r rune) bool {
+	for _, span := range wideRanges {
+		if r >= span[0] && r <= span[1] {
+			return true
+		}
+	}
+	return false
+}
 
 func padRight(text string, width int) string {
 	return text + strings.Repeat(" ", maxInt(0, width-runeWidth(text)))
