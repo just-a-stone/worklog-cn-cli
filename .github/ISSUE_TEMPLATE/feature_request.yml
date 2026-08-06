@@ -1,0 +1,27 @@
+name: 功能建议
+description: 建议新增命令、参数或输出格式
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 你想解决什么问题
+      description: 描述当前的实际困难，而不是直接描述方案
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 期望的行为
+      description: 如果涉及新命令或参数，请写出你设想的调用方式
+      render: bash
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 你试过的替代方案
+    validations:
+      required: false
