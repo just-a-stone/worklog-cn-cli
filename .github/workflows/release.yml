@@ -36,6 +36,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - goos: linux
+            goarch: amd64
+            platform: linux
+            extension: ""
+          - goos: linux
+            goarch: arm64
+            platform: linux
+            extension: ""
           - goos: darwin
             goarch: amd64
             platform: macos
@@ -72,7 +80,7 @@ jobs:
           mkdir -p dist
           go build \
             -trimpath \
-            -ldflags="-s -w" \
+            -ldflags="-s -w -X main.version=${{ github.ref_name }}" \
             -o "dist/worklog-cn-cli-${{ matrix.platform }}-${{ matrix.goarch }}${{ matrix.extension }}" \
             ./cmd/worklog-cn-cli
 
