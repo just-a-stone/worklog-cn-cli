@@ -1,4 +1,4 @@
-module worklog-cn-cli
+module github.com/just-a-stone/worklog-cn-cli
 
 go 1.22
 

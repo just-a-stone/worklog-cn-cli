@@ -8,8 +8,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/just-a-stone/worklog-cn-cli/internal/worklog"
 	"github.com/spf13/cobra"
-	"worklog-cn-cli/internal/worklog"
 )
 
 func newLoginCommand(options *cliOptions) *cobra.Command {

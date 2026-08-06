@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/just-a-stone/worklog-cn-cli/internal/worklog"
 	"github.com/spf13/cobra"
-	"worklog-cn-cli/internal/worklog"
 )
 
 func newProjectsCommand(options *cliOptions) *cobra.Command {
