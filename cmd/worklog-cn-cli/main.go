@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/just-a-stone/worklog-cn-cli/internal/worklog"
 	"github.com/spf13/cobra"
-	"worklog-cn-cli/internal/worklog"
 )
 
 const (
@@ -18,6 +18,9 @@ const (
 	exitRemote  = 3
 	exitRefused = 4
 )
+
+// version 由发布流程通过 -ldflags "-X main.version=..." 注入；源码构建时保持 dev。
+var version = "dev"
 
 type cliOptions struct {
 	base          string
@@ -89,7 +92,14 @@ func isUsageError(err error) bool {
 }
 
 func buildRoot(options *cliOptions) *cobra.Command {
-	root := &cobra.Command{Use: "worklog-cn-cli", Short: "Ecology Timesheet Go CLI", SilenceUsage: true, SilenceErrors: true}
+	root := &cobra.Command{
+		Use:           "worklog-cn-cli",
+		Short:         "Ecology Timesheet Go CLI",
+		Version:       version,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+	root.SetVersionTemplate("worklog-cn-cli {{.Version}}\n")
 	root.PersistentFlags().StringVar(&options.base, "base", "", "Ecology 服务地址")
 	root.PersistentFlags().StringVar(&options.cookie, "cookie", "", "JSESSIONID 或完整 Cookie")
 	root.PersistentFlags().StringVar(&options.envFile, "env-file", "", "显式 .env 文件路径")
